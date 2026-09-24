@@ -1,12 +1,29 @@
 from dataclasses import dataclass
 from app.support.types import identifier, NamedCheck, CHECK_NAMES
 from app.support.errors import DomainError
+
+
 # ЛР1: класс AuthorizationRequest вместо словаря.
+@dataclass(frozen=True)
+class AuthorizationRequest:
+    transaction_id: str
+    checks: tuple
+
+    def __post_init__(self):
+        object.__setattr__(self, "transaction_id", identifier(self.transaction_id))
+        object.__setattr__(self, "checks", tuple(self.checks))
+
+    def failed_checks(self):
+        return tuple(check for check in self.checks if not check.result.allowed)
+
+    def describe(self):
+        return f"{self.transaction_id}:{len(self.checks)} checks"
 @dataclass(frozen=True)
 class AuthorizationResult:
     approved: bool
     reason: str | None
     failed_codes: tuple
+
     def __post_init__(self):
         codes = tuple(self.failed_codes)
         if type(self.approved) is not bool:
@@ -18,9 +35,11 @@ class AuthorizationResult:
               or codes[0] != self.reason or any(not isinstance(code,str) or not code.strip() for code in codes)):
             raise DomainError("INVALID_RESULT")
         object.__setattr__(self, "failed_codes", codes)
+
     @classmethod
     def allow(cls):
         return cls(True, None, ())
+
     @classmethod
     def deny(cls, codes):
         codes = tuple(codes)
