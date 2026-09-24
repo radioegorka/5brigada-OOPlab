@@ -1,20 +1,33 @@
-from app.domain.authorization import AuthorizationResult
+from app.domain.authorization import AuthorizationRequest, AuthorizationResult
+
+
+class AuthorizationService:
+    def authorize(self, request):
+        failures = request.failed_checks()
+
+        if failures:
+            return AuthorizationResult.deny((failures[0].result.code,))
+
+        return AuthorizationResult.allow()
 
 
 def make_entity(transaction_id, checks):
-    return {"transaction_id": transaction_id, "checks": tuple(checks)}
+    return AuthorizationRequest(transaction_id, checks)
 
 
-def _new_legacy_service():return {}
-
-def view(request):return dict(request)
+def view(request):
+    return {
+        "transaction_id": request.transaction_id,
+        "checks": request.checks
+    }
 
 
 def invoke(service, method, request):
-    if method != "authorize":raise ValueError(method)
-    failures = [check for check in request["checks"] if not check.result.allowed]
-    return AuthorizationResult.deny((failures[0].result.code,)) if failures else AuthorizationResult.allow()
+    if method != "authorize":
+        raise ValueError(method)
+
+    return service.authorize(request)
 
 
-
-def new_service():return _new_legacy_service()
+def new_service():
+    return AuthorizationService()
